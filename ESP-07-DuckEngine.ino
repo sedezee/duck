@@ -36,19 +36,17 @@ char *MAC_TABLE[10][2] = {
 /////////////////////////////
 // Compilation Definitions //
 /////////////////////////////
-#define DIO_HB_PWMLEFT 11
-#define DIO_HB_EN1LEFT 12 
-#define DIO_HB_EN2LEFT 13 
-#define DIO_HB_PWMRIGHT 11
-#define DIO_HB_EN1RIGHT 12 
-#define DIO_HB_EN2RIGHT 13 
+#define DIO_LEFT_PWM_ENB 11
+#define DIO_LEFT_IN3 12 
+#define DIO_LEFT_IN4 13 
+#define DIO_RIGHT_PWM_ENA 14
+#define DIO_RIGHT_IN1 15 
+#define DIO_RIGHT_IN2 16 
 
 /////////////
 // Globals //
 /////////////
 ESP8266WebServer server(80);    // define the server and listen on port 80 (standard)
-unsigned char motor;            // last known motor power value
-unsigned char rudder;           // last known direction value
 const int RUDDER_INIT = 90;
 long watchDogTimer=millis();    // our internal watchdog
 
@@ -96,17 +94,19 @@ void setup()
 
   // set the power handlers for motor and rudder based on url argument values
   server.on("/duck", [](){
-    int val;
-    val=(unsigned char)server.arg("p").toInt();
-    if(val!=NULL)
-      motor=val;
-    val=(unsigned char)server.arg("r").toInt();
-    if(val!=NULL)
-      rudder=val;
+    int power = server.arg("p").toInt() - 100;
+    int rudder = server.arg("r").toInt() - 100;
 
-    // build the command string to send to the Arduino
-    char command[]={ 0xfe, 0x07, (unsigned char)motor, (unsigned char)rudder, 0xfd };
-    Serial.print(command);
+    //sets the power for the two-motor system from a rudder and power value on the one-motor system
+    int powerLeft = (int)(((2 * rudder + 100)/100) * power);
+    int powerRight = (int)(((-2 * rudder + 100)/100) * power);
+    if(rudder > 2)
+      duckDrive(power,(int)(((-2 * rudder + 100)/100) * power));   // <-----Work on this Wednesday!!! (4-2 Statement Conversation With McGinty)
+    else if(rudder < -2)
+      duckDrive((int)(((2 * rudder + 100)/100) * power), power);
+    else
+      duckDrive(power, power)
+    
     sendStatus();
   });
 
@@ -175,68 +175,62 @@ void initHardware()
   delay(250);
   
   // declare motor output pins:
-/*  pinMode(DIO_HB_PWMLEFT, OUTPUT);
-  pinMode(DIO_HB_EN1LEFT, OUTPUT);
-  pinMode(DIO_HB_EN2LEFT, OUTPUT);
-*/
+  pinMode(DIO_LEFT_PWM_ENB, OUTPUT);
+  pinMode(DIO_LEFT_IN3, OUTPUT);
+  pinMode(DIO_LEFT_IN4, OUTPUT);
+  pinMode(DIO_RIGHT_PWM_ENA, OUTPUT);
+  pinMode(DIO_RIGHT_IN1, OUTPUT);
+  pinMode(DIO_RIGHT_IN2, OUTPUT);
 }
 
-void processCommand(unsigned char *command, int commandLength) {
-  if(commandLength>5)
-    return;
-  // process command
-  switch (command[0]) {
-    case 0:
-      // disable robot
-      digitalWrite(DIO_HB_EN1LEFT, LOW);
-      digitalWrite(DIO_HB_EN2LEFT, LOW);
-      analogWrite(DIO_HB_PWMLEFT, 0);
-//      println("Robot is disabled");
-      break;
-    case 1:
-      break;
-    case 2:
-      break;
-    case 3:
-      break;
-    case 5:
-      break;
-    case 6:
-      break;
-    case 7:
-      {
-        // set single drive values
-        int power = (((unsigned byte)command[1]) - 100) * 2.55;
-        int r=RUDDER_INIT+(-((unsigned byte)command[2]-90));
-        // set servo values
-//        myservo.write(r);
+//its gone :)
 
-        // create the deadzone to switch off motor
-        if(power<2&&power>-2) {
-          digitalWrite(DIO_HB_EN1LEFT, LOW);
-          digitalWrite(DIO_HB_EN2LEFT, LOW);
-        } else {
-          //forward, pin controls
-          if (power > 2) {
-            digitalWrite(DIO_HB_EN1LEFT, HIGH);
-            digitalWrite(DIO_HB_EN2LEFT, LOW);
-          }
-          //backward, pin controls
-          if (power < -2) {
-           digitalWrite(DIO_HB_EN1LEFT, LOW);
-           digitalWrite(DIO_HB_EN2LEFT, HIGH);
-          }
-        }
-    
-        // write the power level
-        if(power==255)
-          digitalWrite(DIO_HB_PWMLEFT,HIGH);
-        else
-          analogWrite(DIO_HB_PWMLEFT, abs(power));
-      }
-      break;
+void duckDrive(int motorLeft, int motorRight){
+  // left power definition
+  // create the deadzone to switch off motor
+  if(motorLeft < 2 && motorLeft > -2) {
+    digitalWrite(DIO_LEFT_IN3, LOW);
+    digitalWrite(DIO_LEFT_IN4, LOW);
+  } else {
+    //forward, pin controls
+    if (motorLeft > 2) {
+      digitalWrite(DIO_LEFT_IN3, HIGH);
+      digitalWrite(DIO_LEFT_IN4, LOW);
+    }
+    //backward, pin controls
+    if (motorLeft < -2) {
+     digitalWrite(DIO_LEFT_IN3, LOW);
+     digitalWrite(DIO_LEFT_IN4, HIGH);
+    }
   }
+
+  // write the power level
+  if(motorRight == 255)
+    digitalWrite(DIO_RIGHT_PWM_ENB,HIGH);
+  else
+    analogWrite(DIO_RIGHT_PWM_ENB, abs(power));
+
+  // right power definition
+  if(motorRight < 2 && motorRight > -2) {
+    digitalWrite(DIO_RIGHT_IN1, LOW);
+    digitalWrite(DIO_RIGHT_IN2, LOW);
+  } else {
+    //forward, pin controls
+    if (motorRight > 2) {
+      digitalWrite(DIO_RIGHT_IN1, HIGH);
+      digitalWrite(DIO_RIGHT_IN2, LOW);
+    }
+    //backward, pin controls
+    if (motorRight < -2) {
+     digitalWrite(DIO_RIGHT_IN1, LOW);
+     digitalWrite(DIO_RIGHT_IN2, HIGH);
+    }
+  }
+
+  // write the power level
+  if(motorRight == 255)
+    digitalWrite(DIO_RIGHT_PWM_ENA,HIGH);
+  else
+    analogWrite(DIO_RIGHT_PWM_ENA, abs(power));
 }
-
-
 
