@@ -98,15 +98,15 @@ void setup()
     int rudder = server.arg("r").toInt() - 100;
 
     //sets the power for the two-motor system from a rudder and power value on the one-motor system
-    int powerLeft = (int)(((2 * rudder + 100)/100) * power);
-    int powerRight = (int)(((-2 * rudder + 100)/100) * power);
+    int powerLeft = power;
+    int powerRight = power; 
+
     if(rudder > 2)
-      duckDrive(power,(int)(((-2 * rudder + 100)/100) * power));   // <-----Work on this Wednesday!!! (4-2 Statement Conversation With McGinty)
+      int powerLeft = (int)(((2 * rudder + 100)/100) * power);
     else if(rudder < -2)
-      duckDrive((int)(((2 * rudder + 100)/100) * power), power);
-    else
-      duckDrive(power, power)
+      int powerRight = (int)(((-2 * rudder + 100)/100) * power);
     
+    duckDrive(powerLeft, powerRight);
     sendStatus();
   });
 
